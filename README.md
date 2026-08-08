@@ -26,25 +26,36 @@ no Apple Developer fee, no App Store.
 
 ```
 brew tap roniorque/soundup
+brew trust roniorque/soundup
 brew install --cask soundup
 ```
+
+`brew trust` is a one-time step required for any third-party (non-official) Homebrew tap — without
+it, Homebrew will refuse to install with an "untrusted tap" error. You only need to run it once.
 
 Then launch SoundUp from Spotlight (⌘+Space, type "SoundUp") or Launchpad — it runs entirely from
 the menu bar, with no Dock icon or window. To quit, click the SoundUp icon in the menu bar and
 choose **Quit SoundUp** at the bottom of the dropdown.
 
-SoundUp is unsigned (no Apple Developer Program fee, no App Store) — Homebrew Cask automatically
-strips the quarantine flag so it opens without a Gatekeeper warning. The first time it needs to
-adjust another app's audio, macOS will show a one-time permission prompt; approve it to let
-SoundUp work.
+SoundUp is unsigned (no Apple Developer Program fee, no App Store), so the first time you try to
+open it, macOS will block it with a **"SoundUp Not Opened — Apple could not verify..."** warning.
+Clear it with one command (only needed once, right after install):
+
+```
+xattr -cr /Applications/SoundUp.app
+```
+
+Then launch SoundUp again — it will open normally from then on. The first time it actually needs
+to adjust another app's audio, macOS will also show a one-time permission prompt; approve it to
+let SoundUp work.
 
 ### Manual download
 
 Download the latest `SoundUp-vX.Y.Z.zip` from the
 [Releases page](https://github.com/roniorque/SoundUP/releases), unzip it, and move `SoundUp.app`
-to your `Applications` folder. Since it's unsigned and downloaded directly (not via Homebrew), the
-first launch will show a Gatekeeper "unidentified developer" warning — right-click the app and
-choose **Open**, then confirm, to bypass this once.
+to your `Applications` folder. Since it's unsigned, the first launch will show the same Gatekeeper
+warning as above — run `xattr -cr /Applications/SoundUp.app`, or right-click the app and choose
+**Open** then confirm, to bypass it once.
 
 ### Build from source
 
