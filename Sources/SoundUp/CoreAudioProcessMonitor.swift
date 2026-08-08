@@ -1,16 +1,21 @@
-import AppKit
 import CoreAudio
 import Foundation
 import SoundUpCore
 
 /// Real Core Audio-backed implementation of `AudioActivityMonitor`.
 ///
-/// Polls `kAudioHardwarePropertyProcessObjectList` for audio process objects
-/// and filters to ones currently producing output audio
-/// (`kAudioProcessPropertyIsRunningOutput`). Polling (rather than a property
-/// listener) is used for simplicity in this first implementation; this is a
-/// reasonable first target for tightening during manual verification if
-/// activity detection feels too slow or too eager.
+/// Polls `kAudioHardwarePropertyProcessObjectList` for every process Core Audio
+/// knows has audio capability. Genuine, dock-visible apps (`.regular` activation
+/// policy — e.g. Music) are always listed once running, regardless of whether
+/// they're currently playing, since Core Audio's per-process "is running" flag
+/// is edge-triggered on play/pause and does not reliably reflect audio that was
+/// already playing before SoundUp started observing it. Background helpers and
+/// daemons (`.accessory`/`.prohibited`, e.g. loginwindow, or shared helpers like
+/// a browser's GPU process) are only listed while actually producing output, to
+/// avoid cluttering the list with system noise. `AudioActiveApp.isPlaying`
+/// reflects the live flag either way, so `AppVolumeController` can defer
+/// creating the real (resource-costly) gain control until an app is actually
+/// confirmed playing or the user explicitly interacts with it.
 final class CoreAudioProcessMonitor: AudioActivityMonitor {
     var onActiveAppsChanged: (([AudioActiveApp]) -> Void)?
 
@@ -51,25 +56,29 @@ final class CoreAudioProcessMonitor: AudioActivityMonitor {
     }
 
     static func currentAudioActiveApps() -> [AudioActiveApp] {
-        guard let processIDs = audioProcessObjectIDs() else {
-            NSLog("[DEBUG-poll2] audioProcessObjectIDs() returned nil (property query failed)")
-            return []
-        }
+        guard let processIDs = audioProcessObjectIDs() else { return [] }
 
         var apps: [AudioActiveApp] = []
         var seenBundleIDs = Set<String>()
 
-        for processID in processIDs {
-            let running = isRunningOutput(processID)
-            let resolvedBundleID = bundleID(for: processID)
-            NSLog(
-                "[DEBUG-poll2] processID=\(processID) isRunningOutput=\(running) "
-                + "bundleID=\(resolvedBundleID.map { $0.isEmpty ? "<empty>" : $0 } ?? "<nil>")"
-            )
+        let ownPID = ProcessInfo.processInfo.processIdentifier
 
-            guard running, let bundleID = resolvedBundleID, !bundleID.isEmpty else { continue }
+        for processID in processIDs {
+            // SoundUp's own process starts reporting itself as "producing output audio" the
+            // moment it drives an aggregate device's IOProc for another app — it must never
+            // treat itself as a controllable app, or it ends up creating a second, conflicting
+            // tap/aggregate device targeting its own audio (via whatever app launched it, e.g.
+            // Terminal), silently breaking the legitimate control.
+            guard AudioProcessOwnership.pid(forProcessID: processID) != ownPID else { continue }
+            guard let owningApp = AudioProcessOwnership.owningApplication(forProcessID: processID) else { continue }
+            guard let bundleID = owningApp.bundleIdentifier, !bundleID.isEmpty else { continue }
+
+            let playing = isRunningOutput(processID)
+            guard owningApp.activationPolicy == .regular || playing else { continue }
             guard seenBundleIDs.insert(bundleID).inserted else { continue }
-            apps.append(AudioActiveApp(bundleID: bundleID, displayName: displayName(forBundleID: bundleID)))
+
+            let displayName = owningApp.localizedName ?? bundleID
+            apps.append(AudioActiveApp(bundleID: bundleID, displayName: displayName, isPlaying: playing))
         }
         return apps
     }
@@ -106,33 +115,4 @@ final class CoreAudioProcessMonitor: AudioActivityMonitor {
         return status == noErr && isRunning != 0
     }
 
-    private static func bundleID(for processID: AudioObjectID) -> String? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioProcessPropertyBundleID,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var dataSize: UInt32 = 0
-        var status = AudioObjectGetPropertyDataSize(processID, &address, 0, nil, &dataSize)
-        guard status == noErr, dataSize > 0 else { return nil }
-
-        var cfStringRef: CFString? = nil
-        status = withUnsafeMutablePointer(to: &cfStringRef) { pointer -> OSStatus in
-            AudioObjectGetPropertyData(processID, &address, 0, nil, &dataSize, pointer)
-        }
-        guard status == noErr, let cfStringRef else { return nil }
-        return cfStringRef as String
-    }
-
-    private static func displayName(forBundleID bundleID: String) -> String {
-        guard
-            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
-            let bundle = Bundle(url: url)
-        else {
-            return bundleID
-        }
-        return (bundle.infoDictionary?["CFBundleName"] as? String)
-            ?? (bundle.infoDictionary?["CFBundleDisplayName"] as? String)
-            ?? bundleID
-    }
 }

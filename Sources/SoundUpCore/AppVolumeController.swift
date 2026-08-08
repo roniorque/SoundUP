@@ -10,6 +10,7 @@ public final class AppVolumeController {
     public var onAppsChanged: (([AudioActiveApp]) -> Void)?
 
     private var states: [String: AppVolumeState] = [:]
+    private var controlledBundleIDs: Set<String> = []
     private let monitor: AudioActivityMonitor
     private let gainController: ProcessGainController
     private let settingsStore: AppVolumeSettingsStore
@@ -58,6 +59,7 @@ public final class AppVolumeController {
     private func applyAndPersist(_ state: AppVolumeState, forBundleID bundleID: String) {
         states[bundleID] = state
         gainController.setGain(state.effectiveGain, forBundleID: bundleID)
+        controlledBundleIDs.insert(bundleID)
         settingsStore.save(state, forBundleID: bundleID)
     }
 
@@ -65,15 +67,25 @@ public final class AppVolumeController {
         apps = activeApps
         let activeBundleIDs = Set(activeApps.map(\.bundleID))
 
-        for app in activeApps where states[app.bundleID] == nil {
-            let restored = settingsStore.setting(forBundleID: app.bundleID)
-                ?? AppVolumeState(percent: VolumeGainCalculator.unityPercent)
-            states[app.bundleID] = restored
-            gainController.setGain(restored.effectiveGain, forBundleID: app.bundleID)
+        for app in activeApps {
+            if states[app.bundleID] == nil {
+                states[app.bundleID] = settingsStore.setting(forBundleID: app.bundleID)
+                    ?? AppVolumeState(percent: VolumeGainCalculator.unityPercent)
+            }
+            // Only create the real, resource-costly gain control once the app is
+            // confirmed playing (or the user explicitly interacts, via setPercent/
+            // setMuted) — not just because it's listed. An app can be shown without
+            // ever having a live control if it never plays and is never touched.
+            if app.isPlaying, !controlledBundleIDs.contains(app.bundleID) {
+                gainController.setGain(states[app.bundleID]!.effectiveGain, forBundleID: app.bundleID)
+                controlledBundleIDs.insert(app.bundleID)
+            }
         }
 
         for bundleID in states.keys where !activeBundleIDs.contains(bundleID) {
-            gainController.removeControl(forBundleID: bundleID)
+            if controlledBundleIDs.remove(bundleID) != nil {
+                gainController.removeControl(forBundleID: bundleID)
+            }
             states.removeValue(forKey: bundleID)
         }
 

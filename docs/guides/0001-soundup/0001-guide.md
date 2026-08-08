@@ -3,6 +3,16 @@
 **Last updated:** Saturday, Aug 8, 2026, 6:00 PM (UTC+8)
 **Engagement:** `soundup`
 
+## Known limitation
+
+If an app was **already playing audio before SoundUp launched**, it won't appear in the dropdown
+right away. This is a platform characteristic of Apple's Core Audio Process Tap API: the property
+SoundUp uses to detect active audio (`kAudioProcessPropertyIsRunningOutput`) only flips on
+play/pause transitions, not continuously. **Workaround:** pause and resume playback once in the
+app, and it will appear and continue to be tracked correctly from then on. Apps that start (or
+resume) playing after SoundUp is already running are detected immediately with no workaround
+needed.
+
 ## Requirements
 
 - macOS 14.4 (Sonoma) or later.

@@ -131,4 +131,83 @@ struct AppVolumeControllerTests {
         #expect(controller.apps.isEmpty)
         #expect(gainController.removedBundleIDs == ["com.spotify.client"])
     }
+
+    @Test("a listed app that is not yet playing is shown but does not get a live gain control")
+    func listedButNotPlayingAppHasNoLiveControl() {
+        let monitor = FakeAudioActivityMonitor()
+        let gainController = FakeProcessGainController()
+        let controller = AppVolumeController(
+            monitor: monitor,
+            gainController: gainController,
+            settingsStore: AppVolumeSettingsStore(storage: InMemorySettingsStorage())
+        )
+        controller.start()
+
+        monitor.simulateActiveApps([
+            AudioActiveApp(bundleID: "com.apple.Music", displayName: "Music", isPlaying: false)
+        ])
+
+        #expect(controller.apps.map(\.bundleID) == ["com.apple.Music"])
+        #expect(controller.state(forBundleID: "com.apple.Music").percent == 100)
+        #expect(gainController.appliedGains["com.apple.Music"] == nil)
+    }
+
+    @Test("an app transitioning from not-playing to playing gets its gain control created")
+    func transitionFromNotPlayingToPlayingCreatesControl() {
+        let monitor = FakeAudioActivityMonitor()
+        let gainController = FakeProcessGainController()
+        let controller = AppVolumeController(
+            monitor: monitor,
+            gainController: gainController,
+            settingsStore: AppVolumeSettingsStore(storage: InMemorySettingsStorage())
+        )
+        controller.start()
+        monitor.simulateActiveApps([
+            AudioActiveApp(bundleID: "com.apple.Music", displayName: "Music", isPlaying: false)
+        ])
+
+        monitor.simulateActiveApps([
+            AudioActiveApp(bundleID: "com.apple.Music", displayName: "Music", isPlaying: true)
+        ])
+
+        #expect(gainController.appliedGains["com.apple.Music"] == 1.0)
+    }
+
+    @Test("moving the slider for a not-yet-playing app creates its control immediately")
+    func movingSliderForNotYetPlayingAppCreatesControlImmediately() {
+        let monitor = FakeAudioActivityMonitor()
+        let gainController = FakeProcessGainController()
+        let controller = AppVolumeController(
+            monitor: monitor,
+            gainController: gainController,
+            settingsStore: AppVolumeSettingsStore(storage: InMemorySettingsStorage())
+        )
+        controller.start()
+        monitor.simulateActiveApps([
+            AudioActiveApp(bundleID: "com.apple.Music", displayName: "Music", isPlaying: false)
+        ])
+
+        controller.setPercent(150, forBundleID: "com.apple.Music")
+
+        #expect(gainController.appliedGains["com.apple.Music"] == VolumeGainCalculator.gain(forPercent: 150))
+    }
+
+    @Test("an app that was never actually controlled does not trigger removeControl when it disappears")
+    func neverControlledAppDoesNotTriggerRemoveOnDisappearance() {
+        let monitor = FakeAudioActivityMonitor()
+        let gainController = FakeProcessGainController()
+        let controller = AppVolumeController(
+            monitor: monitor,
+            gainController: gainController,
+            settingsStore: AppVolumeSettingsStore(storage: InMemorySettingsStorage())
+        )
+        controller.start()
+        monitor.simulateActiveApps([
+            AudioActiveApp(bundleID: "com.apple.Music", displayName: "Music", isPlaying: false)
+        ])
+
+        monitor.simulateActiveApps([])
+
+        #expect(gainController.removedBundleIDs.isEmpty)
+    }
 }

@@ -36,3 +36,10 @@ account/org decisions, require a human choice.
 ## Blocked by
 
 Issues 0001, 0002, 0003, 0004, 0005, 0006
+
+## Closure note
+
+Closed on human direction ("close all issues") without any of the acceptance criteria having
+been implemented — no build was packaged, no GitHub release created, no Homebrew tap set up.
+This is an administrative close of the tracking file, not a completion. Packaging/distribution
+still needs to be done from scratch whenever it's picked up again.

@@ -201,25 +201,11 @@ final class CoreAudioGainController: ProcessGainController {
         )
         guard status == noErr else { return [] }
 
-        return processIDs.filter { Self.bundleID(for: $0) == bundleID }
-    }
-
-    private static func bundleID(for processID: AudioObjectID) -> String? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioProcessPropertyBundleID,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var dataSize: UInt32 = 0
-        var status = AudioObjectGetPropertyDataSize(processID, &address, 0, nil, &dataSize)
-        guard status == noErr, dataSize > 0 else { return nil }
-
-        var cfStringRef: CFString? = nil
-        status = withUnsafeMutablePointer(to: &cfStringRef) { pointer -> OSStatus in
-            AudioObjectGetPropertyData(processID, &address, 0, nil, &dataSize, pointer)
-        }
-        guard status == noErr, let cfStringRef else { return nil }
-        return cfStringRef as String
+        // Match by the RESOLVED OWNING APP's bundle ID, not each process's own bundle ID —
+        // a helper process (e.g. a browser's GPU/networking process) reports its own bundle ID
+        // (e.g. "com.apple.WebKit.GPU"), not its parent app's ("com.apple.Safari"). All audio
+        // processes belonging to the same owning app are tapped together in one control.
+        return processIDs.filter { AudioProcessOwnership.owningApplication(forProcessID: $0)?.bundleIdentifier == bundleID }
     }
 
     private static func defaultOutputDeviceID() throws -> AudioObjectID {
