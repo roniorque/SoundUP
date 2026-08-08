@@ -1,0 +1,50 @@
+---
+description: Project SDLC and coding policy
+alwaysApply: true
+---
+
+## Git workflow
+
+- Work happens on short-lived feature branches, one per issue slice (e.g.
+  `0002-per-app-volume-control`).
+- Merge into `main` via pull request.
+- No direct commits to `main`.
+
+## Testing
+
+- Unit test (XCTest) all pure logic: gain-mapping math (slider % → applied gain), the
+  above-100% soft-limiter curve, and per-app settings save/restore logic keyed by bundle ID.
+- Do NOT unit test the live Core Audio Process Tap integration itself (tap creation,
+  audio-activity signals, applying gain to a real stream) — verify this manually against each
+  issue's acceptance criteria instead.
+- No enforced code-coverage percentage threshold. Correctness of the pure-logic boundary is the
+  goal, not a coverage number.
+
+## Security
+
+- Never commit secrets, API keys, or credentials of any kind.
+- SoundUp is fully offline: no telemetry, no crash reporting, no network calls of any kind from
+  the app itself.
+- Captured/tapped audio is never logged, recorded, persisted, or transmitted anywhere — the
+  audio-capture permission is used only to read levels and apply gain in real time.
+- Per-app settings persisted to disk (bundle ID → volume/boost/mute) contain no sensitive data;
+  plain local storage is sufficient, no encryption-at-rest requirement.
+
+## Security severity floor & OSINT scope
+
+- No Critical or High severity security findings may ship in a release. Medium/Low findings are
+  tracked but do not block a release.
+- OSINT scope for security review is limited to the SoundUp GitHub repository and its companion
+  Homebrew tap repository. No other domains, apps, or infrastructure are in scope.
+
+## Code style
+
+- Follow standard Swift API Design Guidelines.
+- Use default `swift-format` / Xcode formatting; no custom linter or bespoke style ruleset.
+- Build the menu-bar UI using SwiftUI's `MenuBarExtra`, not manual `NSStatusItem` bridging.
+
+## Deploy & runtime
+
+Not applicable. SoundUp is a local native macOS app with no server, no backend, and no
+environment variables. Its only distribution surface is a GitHub Release plus a companion
+Homebrew tap, covered by Issue 0007 in `docs/issues/0001-soundup/`.

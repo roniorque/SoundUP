@@ -1,0 +1,16 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Local packaging artifacts (built .app/.zip for releases — not committed, uploaded as release assets)
+packaging/
