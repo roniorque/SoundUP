@@ -23,6 +23,17 @@ final class CoreAudioProcessMonitor: AudioActivityMonitor {
 
     func start() {
         poll()
+        // Apps already playing audio before SoundUp launched should appear immediately,
+        // not just apps that start afterward. A single poll at launch can occasionally
+        // miss this if Core Audio hasn't yet settled kAudioProcessPropertyIsRunningOutput
+        // for already-running processes, so a couple of quick follow-up polls right after
+        // launch make first-detection reliable without waiting for the next full-interval tick.
+        for delay in [0.3, 0.8, 1.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.poll()
+            }
+        }
+
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
         }
@@ -40,13 +51,23 @@ final class CoreAudioProcessMonitor: AudioActivityMonitor {
     }
 
     static func currentAudioActiveApps() -> [AudioActiveApp] {
-        guard let processIDs = audioProcessObjectIDs() else { return [] }
+        guard let processIDs = audioProcessObjectIDs() else {
+            NSLog("[DEBUG-poll2] audioProcessObjectIDs() returned nil (property query failed)")
+            return []
+        }
 
         var apps: [AudioActiveApp] = []
         var seenBundleIDs = Set<String>()
 
         for processID in processIDs {
-            guard isRunningOutput(processID), let bundleID = bundleID(for: processID), !bundleID.isEmpty else { continue }
+            let running = isRunningOutput(processID)
+            let resolvedBundleID = bundleID(for: processID)
+            NSLog(
+                "[DEBUG-poll2] processID=\(processID) isRunningOutput=\(running) "
+                + "bundleID=\(resolvedBundleID.map { $0.isEmpty ? "<empty>" : $0 } ?? "<nil>")"
+            )
+
+            guard running, let bundleID = resolvedBundleID, !bundleID.isEmpty else { continue }
             guard seenBundleIDs.insert(bundleID).inserted else { continue }
             apps.append(AudioActiveApp(bundleID: bundleID, displayName: displayName(forBundleID: bundleID)))
         }

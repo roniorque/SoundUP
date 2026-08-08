@@ -1,6 +1,6 @@
 # Bug 0001: No audio produced despite successful Core Audio setup
 
-**Status:** open
+**Status:** verified
 **behavior_changed:** no
 **Last updated:** Saturday, Aug 8, 2026, 7:00 PM (UTC+8)
 **Engagement:** `soundup`
@@ -92,8 +92,9 @@ audio is now audible.
 
 ## Verification
 
-**Command/steps:** Rebuild (`swift build`), relaunch SoundUp, play audio from exactly one app,
-confirm only one `[DEBUG-au1] tap+aggregate created` line appears, and check whether audio is
-now audible.
-**Result:** Pending — awaiting human retest.
-**Verified by:** Pending.
+**Command/steps:** Rebuilt, relaunched SoundUp with the blank-bundle-ID filter in place, played
+audio from a single app, moved the slider to 0% (confirmed full silence) and up toward the
+(then 200%, later raised to 500%) boost range (confirmed audible loudness increase).
+**Result:** Passed. 0% reliably silences the app; boosting reliably increases loudness. Debug
+instrumentation (`[DEBUG-au1]`) removed after diagnosis completed.
+**Verified by:** Human confirmation: "its now working. close the issues."

@@ -46,18 +46,6 @@ final class CoreAudioGainController: ProcessGainController {
         }
     }
 
-    /// Thread-safe call counter for `[DEBUG-au1]` IOProc instrumentation (BUG-1).
-    private final class DebugCounter {
-        private let lock = NSLock()
-        private var count = 0
-
-        func increment() -> Int {
-            lock.lock(); defer { lock.unlock() }
-            count += 1
-            return count
-        }
-    }
-
     private struct ActiveControl {
         var tapID: AudioObjectID
         var aggregateDeviceID: AudioObjectID
@@ -139,28 +127,11 @@ final class CoreAudioGainController: ProcessGainController {
             throw GainControllerError.aggregateDeviceCreationFailed(status)
         }
 
-        NSLog(
-            "[DEBUG-au1] tap+aggregate created for \(bundleID): tapUID=\(tapUID) tapID=\(tapID) "
-            + "aggregateDeviceID=\(aggregateDeviceID) outputUID=\(outputUID)"
-        )
-
         let gainBox = GainBox(value: initialGain)
-        let callCounter = DebugCounter()
         var ioProcID: AudioDeviceIOProcID?
         status = AudioDeviceCreateIOProcIDWithBlock(
             &ioProcID, aggregateDeviceID, nil
         ) { _, inInputData, _, outOutputData, _ in
-            let callNumber = callCounter.increment()
-            if callNumber <= 3 || callNumber % 200 == 0 {
-                let inputList = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inInputData))
-                let outputList = UnsafeMutableAudioBufferListPointer(outOutputData)
-                let inputDescription = inputList.map { "\($0.mNumberChannels)ch/\($0.mDataByteSize)B/nonNil=\($0.mData != nil)" }
-                let outputDescription = outputList.map { "\($0.mNumberChannels)ch/\($0.mDataByteSize)B/nonNil=\($0.mData != nil)" }
-                NSLog(
-                    "[DEBUG-au1] IOProc call #\(callNumber) for \(bundleID): "
-                    + "input=\(inputDescription) output=\(outputDescription)"
-                )
-            }
             Self.applyGain(gainBox.value, from: inInputData, to: outOutputData)
         }
         guard status == noErr, let ioProcID else {
@@ -176,8 +147,6 @@ final class CoreAudioGainController: ProcessGainController {
             AudioHardwareDestroyProcessTap(tapID)
             throw GainControllerError.deviceStartFailed(status)
         }
-
-        NSLog("[DEBUG-au1] AudioDeviceStart succeeded for \(bundleID)")
 
         return ActiveControl(
             tapID: tapID, aggregateDeviceID: aggregateDeviceID, ioProcID: ioProcID, gainBox: gainBox
