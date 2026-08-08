@@ -1,3 +1,4 @@
+import AppKit
 import SoundUpCore
 import SwiftUI
 
@@ -28,6 +29,12 @@ struct SoundUpMenuView: View {
                     Divider()
                 }
             }
+
+            Button("Quit SoundUp") {
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
         }
         .padding(8)
         .frame(minWidth: 260)
