@@ -46,7 +46,7 @@ final class CoreAudioProcessMonitor: AudioActivityMonitor {
         var seenBundleIDs = Set<String>()
 
         for processID in processIDs {
-            guard isRunningOutput(processID), let bundleID = bundleID(for: processID) else { continue }
+            guard isRunningOutput(processID), let bundleID = bundleID(for: processID), !bundleID.isEmpty else { continue }
             guard seenBundleIDs.insert(bundleID).inserted else { continue }
             apps.append(AudioActiveApp(bundleID: bundleID, displayName: displayName(forBundleID: bundleID)))
         }
