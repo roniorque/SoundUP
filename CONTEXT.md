@@ -32,8 +32,11 @@ _Avoid_: Volume (ambiguous with the 0–500% slider percentage, which maps to ga
 
 **Boost**:
 Gain above unity (slider percentage above 100%), letting an app play louder than its own normal
-maximum. Capped at 500% slider (soft-limited, asymptotic, never reaching the unlimited linear
-equivalent).
+maximum. Fully linear (uncompressed) up to 2000%, gently compressed from 2000–3000% (the slider
+max), reaching ~22.5x at the top — deliberately far beyond what normal "louder" use needs, so
+there's enough headroom to counteract macOS's own system-wide call-ducking during FaceTime/phone
+calls (~10x reduction, undisableable by users). Pushing gain that far past 0 dBFS trades audio
+quality for audibility at extreme settings — see ADR 0004.
 _Avoid_: Amplification (used interchangeably in casual conversation, but "boost" is SoundUp's
 canonical term in UI and docs).
 

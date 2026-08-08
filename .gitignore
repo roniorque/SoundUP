@@ -11,3 +11,6 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Local packaging artifacts (built .app/.zip for releases — not committed, uploaded as release assets)
+packaging/
