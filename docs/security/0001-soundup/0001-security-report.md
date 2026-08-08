@@ -58,6 +58,7 @@ companion Homebrew tap repository.
 
 ### SEC-001 — Potential out-of-bounds read in real-time gain-application loop
 
+- **Status:** FIXED
 - **Severity:** Medium
 - **CWE:** CWE-125 (Out-of-bounds Read)
 - **Category:** input-validation (memory safety)
@@ -74,12 +75,15 @@ companion Homebrew tap repository.
   output buffer (which is immediately overwritten with the same, already-in-process audio data —
   not exfiltrated anywhere). Low real-world exploitability, but a genuine memory-safety gap worth
   closing given raw pointer arithmetic is involved.
-- **Recommendation:** Bound `frameCount` by the *smaller* of the input and output buffers' derived
-  sample counts, e.g. `min(inputFrameCount, outputFrameCount)`, before the copy loop.
+- **Fix:** `frameCount` is now `min(outputFrameCount, inputFrameCount)`, computed from both
+  buffers independently before the copy loop. Output buffers are zero-initialized by Core Audio
+  per its documented contract, so any unwritten trailing frames on a size mismatch are silent,
+  not garbage.
 
 ### SEC-002 — No explicit bounds/sanity validation when decoding persisted settings
 
-- **Severity:** Low
+- **Status:** VERIFIED NOT EXPLOITABLE (no code change needed)
+- **Severity:** Low (downgraded from initial assessment after testing)
 - **CWE:** CWE-20 (Improper Input Validation)
 - **Category:** data-exposure / input-validation
 - **File:** `Sources/SoundUpCore/AppVolumeSettingsStore.swift`
@@ -90,8 +94,13 @@ companion Homebrew tap repository.
   whose `min`/`max` clamping has unspecified behavior for `NaN` inputs in Swift.
 - **Impact:** Self-inflicted only (requires local file-write access the user already has to their
   own account); worst case is an unexpected gain value for one app, not a security compromise.
-- **Recommendation:** Add an explicit `.isFinite` check (or clamp `NaN`/infinite values to a safe
-  default) when decoding `percent` in `AppVolumeSettingsStore.readAll()`.
+- **Verification:** Added a regression test (`AppVolumeSettingsStoreTests`) saving `AppVolumeState`
+  with `percent: .nan` and `.infinity`. Result: `JSONEncoder`'s default behavior throws on
+  non-finite `Double` values, so `writeAll()`'s `try?` silently no-ops — nothing is ever persisted
+  for a non-finite value, and `setting(forBundleID:)` correctly returns `nil`. Valid JSON also has
+  no native representation for `NaN`/`Infinity`, so a hand-edited file can't reintroduce this
+  either. No code change was needed; downgraded from "recommend a fix" to "confirmed already
+  safe by construction."
 
 ### SEC-003 — Info: local settings file uses default OS file permissions
 
@@ -130,6 +139,5 @@ companion Homebrew tap repository.
 
 ## Recommendation
 
-Address SEC-001 (Medium) before the next release build if convenient — it's a small, well-scoped
-fix. SEC-002 (Low) is a nice-to-have hardening, not urgent. SEC-003/004/005 require no action.
-Given no Critical/High findings, this does not block proceeding to `phase_9_qa`.
+SEC-001 fixed. SEC-002 verified as not a real gap. SEC-003/004/005 require no action. All findings
+resolved or confirmed non-issues — clear to proceed to `phase_9_qa`.

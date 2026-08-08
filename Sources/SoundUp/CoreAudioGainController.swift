@@ -170,7 +170,13 @@ final class CoreAudioGainController: ProcessGainController {
                 let outputBytes = outputList[bufferIndex].mData
             else { continue }
 
-            let frameCount = Int(outputList[bufferIndex].mDataByteSize) / MemoryLayout<Float32>.size
+            // Bound by the SMALLER of the two buffers' frame counts (SEC-001): the tap and the
+            // output device are assumed to negotiate matching sizes, but that's unverified for
+            // every possible device/format combination — reading past the input buffer's actual
+            // size on a mismatch would be an out-of-bounds read.
+            let outputFrameCount = Int(outputList[bufferIndex].mDataByteSize) / MemoryLayout<Float32>.size
+            let inputFrameCount = Int(inputList[bufferIndex].mDataByteSize) / MemoryLayout<Float32>.size
+            let frameCount = min(outputFrameCount, inputFrameCount)
             let inputSamples = inputBytes.assumingMemoryBound(to: Float32.self)
             let outputSamples = outputBytes.assumingMemoryBound(to: Float32.self)
 

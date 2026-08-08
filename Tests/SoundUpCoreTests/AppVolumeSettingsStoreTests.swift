@@ -32,6 +32,18 @@ struct AppVolumeSettingsStoreTests {
         #expect(secondStore.setting(forBundleID: "com.zoom.us") == state)
     }
 
+    @Test("a non-finite persisted percent (e.g. from a manually tampered file) is treated as absent")
+    func nonFinitePersistedPercentIsTreatedAsAbsent() {
+        let storage = InMemorySettingsStorage()
+        let store = AppVolumeSettingsStore(storage: storage)
+
+        store.save(AppVolumeState(percent: .nan, isMuted: false), forBundleID: "com.example.corrupt")
+        #expect(store.setting(forBundleID: "com.example.corrupt") == nil)
+
+        store.save(AppVolumeState(percent: .infinity, isMuted: false), forBundleID: "com.example.corrupt2")
+        #expect(store.setting(forBundleID: "com.example.corrupt2") == nil)
+    }
+
     @Test("settings for different bundle IDs do not overwrite each other")
     func settingsForDifferentBundleIDsDoNotCollide() {
         let store = AppVolumeSettingsStore(storage: InMemorySettingsStorage())
