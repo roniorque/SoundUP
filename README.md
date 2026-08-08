@@ -9,7 +9,9 @@ no Apple Developer fee, no App Store.
 ## Features
 
 - Independent volume control per app, from a menu-bar dropdown.
-- Boost any app up to 500% of its own normal maximum, with soft limiting to control distortion.
+- Boost any app up to 3000% of its own normal maximum (fully linear up to 2000%, gently limited
+  above that), loud enough to compensate for macOS's own system-wide audio ducking during
+  FaceTime/phone calls.
 - Mute/unmute per app without losing your slider position.
 - Settings persist per app across relaunches and reboots.
 - Fully offline — no telemetry, no network calls, nothing captured ever leaves your machine.
@@ -17,10 +19,37 @@ no Apple Developer fee, no App Store.
 ## Requirements
 
 - macOS 14.4 (Sonoma) or later.
-- [Swift](https://www.swift.org) toolchain (ships with Xcode, or installable via Command Line
-  Tools) to build from source.
 
-## Building and running
+## Installation
+
+### Homebrew (recommended)
+
+```
+brew tap roniorque/soundup
+brew install --cask soundup
+```
+
+Then launch SoundUp from Spotlight (⌘+Space, type "SoundUp") or Launchpad — it runs entirely from
+the menu bar, with no Dock icon or window. To quit, click the SoundUp icon in the menu bar and
+choose **Quit SoundUp** at the bottom of the dropdown.
+
+SoundUp is unsigned (no Apple Developer Program fee, no App Store) — Homebrew Cask automatically
+strips the quarantine flag so it opens without a Gatekeeper warning. The first time it needs to
+adjust another app's audio, macOS will show a one-time permission prompt; approve it to let
+SoundUp work.
+
+### Manual download
+
+Download the latest `SoundUp-vX.Y.Z.zip` from the
+[Releases page](https://github.com/roniorque/SoundUP/releases), unzip it, and move `SoundUp.app`
+to your `Applications` folder. Since it's unsigned and downloaded directly (not via Homebrew), the
+first launch will show a Gatekeeper "unidentified developer" warning — right-click the app and
+choose **Open**, then confirm, to bypass this once.
+
+### Build from source
+
+Requires the [Swift](https://www.swift.org) toolchain (ships with Xcode, or installable via
+Command Line Tools).
 
 ```
 swift build
